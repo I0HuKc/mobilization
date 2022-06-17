@@ -3,12 +3,5 @@ name = "wofc"
 version = "0.1.0"
 edition = "2021"
 
-
 [dependencies]
-specs = "0.14" 
-specs-derive = "0.4" 
-
-[dependencies.sdl2] 
-version = "0.32.1" 
-default-features = false 
-features = ["image"] 
+bevy = "0.7"
