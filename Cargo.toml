@@ -6,3 +6,5 @@ version = "0.1.0"
 [dependencies]
 bevy = "0.7"
 bevy_config_cam = "0.3.0"
+
+rand = "0.8.4"
