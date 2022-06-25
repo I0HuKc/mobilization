@@ -1,10 +1,12 @@
+use bevy::math::{Mat3, Quat, Vec2, Vec3};
 use bevy::prelude::{
-    App, Camera as BevyCamera, EventReader, KeyCode, Plugin, Query, ResMut, SystemSet, Transform,
-    With,
+    App, Commands, Component, EventReader, MouseButton, Mut, PerspectiveCameraBundle, Plugin,
+    Query, SystemSet, Transform,
 };
+use bevy::render::camera::PerspectiveProjection;
 use bevy::{
     input::{
-        mouse::{MouseScrollUnit, MouseWheel},
+        mouse::{MouseMotion, MouseWheel},
         Input,
     },
     prelude::Res,
@@ -14,123 +16,175 @@ use lazy_static::lazy_static;
 
 lazy_static! {
     /// Максимально допустимый масштаб
-    static ref MAX_ZOOM_VALUE: f32 = 1.5;
+    static ref MAX_ZOOM: f32 = 3.0;
 
     /// Минимально допустимый масштаб
-    static ref MIN_ZOOM_VALUE: f32 = 0.5;
+    static ref MIN_ZOOM: f32 = 15.0;
 
-    /// Единица масштабирования
-    static ref ZOOM_STEP: f32 = 0.08;
+    static ref MIN_DELTA_Y: f32 = 0.0;
 }
 
-lazy_static! {
-    /// Обычная скорость передвижения камеры
-    static ref MOOVE_SPEED: f32 = 0.05;
-
-    /// Ускореннопе передвижение камеры
-    /// Если курсор находится близко к краю экрана, скорость движения камеры увеличивается
-    static ref ACCELERATED_MOOVE_SPEED: f32 = 0.08;
+/// Создание сущности способную панорамировать и вращаться по орбите
+#[derive(Component)]
+struct PanOrbitCamera {
+    /// «Точка фокуса», вокруг которой нужно вращаться.
+    /// Автоматически обновляется при панорамировании камеры
+    pub focus: Vec3,
+    pub radius: f32,
+    pub upside_down: bool,
 }
 
-pub struct CameraPlugin;
+impl Default for PanOrbitCamera {
+    fn default() -> Self {
+        PanOrbitCamera {
+            focus: Vec3::ZERO,
+            radius: 5.0,
+            upside_down: false,
+        }
+    }
+}
 
-impl CameraPlugin {
-    /// Масштабирование камеры отосительно игрового поля
-    fn zoom(
-        mut scroll_evr: EventReader<MouseWheel>,
-        mut camera: Query<&mut Transform, With<BevyCamera>>,
+pub struct Camera;
+
+impl Camera {
+    pub fn spawn(mut commands: Commands) {
+        let translation = Vec3::new(-2.0, 2.5, 5.0);
+        let radius = translation.length();
+
+        commands
+            .spawn_bundle(PerspectiveCameraBundle {
+                transform: Transform::from_translation(translation).looking_at(Vec3::ZERO, Vec3::Y),
+                ..Default::default()
+            })
+            .insert(PanOrbitCamera {
+                radius,
+                ..Default::default()
+            });
+    }
+
+    /// Панорамирования камеры
+    /// Орбитальное вращение -> ЛКМ
+    /// Перемещение -> ПКМ
+    /// Масштабирование -> СКМ
+    fn pan_orbit(
+        windows: Res<Windows>,
+        mut ev_motion: EventReader<MouseMotion>,
+        mut ev_scroll: EventReader<MouseWheel>,
+        input_mouse: Res<Input<MouseButton>>,
+        mut query: Query<(&mut PanOrbitCamera, &mut Transform, &PerspectiveProjection)>,
     ) {
-        for ev in scroll_evr.iter() {
-            match ev.unit {
-                MouseScrollUnit::Line => {
-                    for mut transform in camera.iter_mut() {
-                        if ev.y > 0.0 && transform.scale.z <= *MAX_ZOOM_VALUE {
-                            transform.scale.z += *ZOOM_STEP;
-                        }
+        // Изменение входного сопоставление для орбиты и панорамирования
+        let orbit_button = MouseButton::Right;
+        let pan_button = MouseButton::Left;
 
-                        if ev.y < 0.0 && transform.scale.z >= *MIN_ZOOM_VALUE {
-                            transform.scale.z -= *ZOOM_STEP;
-                        }
-                    }
+        let mut pan = Vec2::ZERO;
+        let mut rotation_move = Vec2::ZERO;
+        let mut scroll = 0.0;
+        let mut orbit_button_changed = false;
+
+        if input_mouse.pressed(orbit_button) {
+            for ev in ev_motion.iter() {
+                rotation_move += ev.delta;
+            }
+        } else if input_mouse.pressed(pan_button) {
+            // Панорамировать, только если нет вращения в данный момент
+            for ev in ev_motion.iter() {
+                pan += ev.delta;
+            }
+        }
+
+        for ev in ev_scroll.iter() {
+            scroll += ev.y;
+        }
+
+        if input_mouse.just_released(orbit_button) || input_mouse.just_pressed(orbit_button) {
+            orbit_button_changed = true;
+        }
+
+        for (mut pan_orbit, mut transform, projection) in query.iter_mut() {
+            // Проверка только на перевернутость, когда орбита началась или закончилась в этом кадре
+            if orbit_button_changed {
+                let up = transform.rotation * Vec3::Y;
+                println!("{} > 0.8 = {}", up.y, up.y > 0.8);
+
+                if up.y > 0.8 {
+                    println!("1");
+                    break;
                 }
 
-                MouseScrollUnit::Pixel => (),
-            }
-        }
-    }
-
-    /// Передвижения камеры с использованием клавиатуры
-    fn keyboard_test(
-        mut camera: Query<&mut Transform, With<BevyCamera>>,
-        keys: ResMut<Input<KeyCode>>,
-    ) {
-        for mut transform in camera.iter_mut() {
-            if keys.pressed(KeyCode::Up) {
-                transform.translation.z -= *MOOVE_SPEED;
+                pan_orbit.upside_down = up.y <= 0.0;
             }
 
-            if keys.pressed(KeyCode::Down) {
-                transform.translation.z += *MOOVE_SPEED;
-            }
-
-            if keys.pressed(KeyCode::Right) {
-                transform.translation.x += *MOOVE_SPEED;
-            }
-
-            if keys.pressed(KeyCode::Left) {
-                transform.translation.x -= *MOOVE_SPEED;
-            }
-        }
-    }
-
-    fn movement(mut camera: Query<&mut Transform, With<BevyCamera>>, windows: Res<Windows>) {
-        let window = windows.get_primary().unwrap();
-
-        if let Some(position) = window.cursor_position() {
-            for mut transform in camera.iter_mut() {
-                println!("X - {}, Y - {}", position.x, position.y);
-                match position {
-                    // Движение влево
-                    pos if pos.x < 100 as f32 => {
-                        transform.translation.x -= *MOOVE_SPEED;
+            let mut any = false;
+            if rotation_move.length_squared() > 0.0 {
+                any = true;
+                let window = window_size(&windows);
+                let delta_x = {
+                    let delta = rotation_move.x / window.x * std::f32::consts::PI * 2.0;
+                    if pan_orbit.upside_down {
+                        -delta
+                    } else {
+                        delta
                     }
+                };
 
-                    // Движение вправо
-                    pos if pos.x > window.width() - 100 as f32 => {
-                        transform.translation.x += *MOOVE_SPEED;
-                    }
+                let delta_y = rotation_move.y / window.y * std::f32::consts::PI;
 
-                    // Движение вниз
-                    pos if pos.y < 50 as f32 => match pos.y {
-                        y if y < 25 as f32 => transform.translation.z += *ACCELERATED_MOOVE_SPEED,
+                // Отклонение
+                let yaw = Quat::from_rotation_y(-delta_x);
+                // Высота
+                let pitch = Quat::from_rotation_x(-delta_y);
 
-                        _ => transform.translation.z += *MOOVE_SPEED,
-                    },
+                // Вращаться вокруг глобальной оси Y
+                transform.rotation = yaw * transform.rotation;
+                // Вращаться вокруг глобальной оси X
+                transform.rotation = transform.rotation * pitch;
+            } else if pan.length_squared() > 0.0 {
+                any = true;
+                // Cделать расстояние панорамирования независимым от разрешения и FOV
+                let window = window_size(&windows);
+                pan *= Vec2::new(projection.fov * projection.aspect_ratio, projection.fov) / window;
+                // Перевести по локальным осям
+                let right = transform.rotation * Vec3::X * -pan.x;
+                let up = transform.rotation * Vec3::Y * pan.y;
+                // Сделать панорамирование пропорциональным расстоянию от точки фокусировки
+                let translation = (right + up) * pan_orbit.radius;
+                pan_orbit.focus += translation;
+            } else if scroll.abs() > 0.0 // Масштабирование
+                && sor(scroll, pan_orbit.radius) > *MAX_ZOOM
+                && sor(scroll, pan_orbit.radius) < *MIN_ZOOM
+            {
+                any = true;
+                pan_orbit.radius -= scroll * pan_orbit.radius * 0.2;
+                pan_orbit.radius = f32::max(pan_orbit.radius, 0.05);
+            }
 
-                    // Движение вверх
-                    pos if pos.y > window.height() - 50 as f32 => match pos.y {
-                        y if y > window.height() - 25 as f32 => {
-                            transform.translation.z -= *ACCELERATED_MOOVE_SPEED
-                        }
-
-                        _ => transform.translation.z -= *MOOVE_SPEED,
-                    },
-
-                    _ => (),
-                }
+            if any {
+                let rot_matrix = Mat3::from_quat(transform.rotation);
+                transform.translation =
+                    pan_orbit.focus + rot_matrix.mul_vec3(Vec3::new(0.0, 0.0, pan_orbit.radius));
             }
         }
     }
 }
 
-impl Plugin for CameraPlugin {
+fn sor(scroll: f32, radius: f32) -> f32 {
+    let radius = radius - (scroll * radius * 0.2);
+    f32::max(radius, 0.05)
+}
+
+fn window_size(windows: &Res<Windows>) -> Vec2 {
+    let window = windows.get_primary().unwrap();
+    let window = Vec2::new(window.width() as f32, window.height() as f32);
+    window
+}
+
+impl Plugin for Camera {
     fn build(&self, app: &mut App) {
         app.add_system_set(
             SystemSet::new()
                 .label(super::Systems::Camera)
-                .with_system(CameraPlugin::zoom)
-                .with_system(CameraPlugin::movement)
-                .with_system(CameraPlugin::keyboard_test),
+                .with_system(Camera::pan_orbit),
         );
     }
 }

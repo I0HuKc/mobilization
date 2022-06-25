@@ -2,17 +2,18 @@ mod resource;
 mod system;
 
 use bevy::prelude::*;
-use bevy_mod_picking::{PickableBundle, PickingCameraBundle};
+use bevy_mod_picking::PickableBundle;
 use std::f32::consts::PI;
 
-use crate::system::{camera, window};
+use crate::system::camera::Camera;
+use crate::system::window::WindowPlugin;
 
 fn main() {
     App::new()
-        .add_plugin(window::WindowPlugin)
+        .add_plugin(WindowPlugin)
         .add_plugins(DefaultPlugins)
         .insert_resource(Msaa { samples: 4 })
-        .add_plugin(camera::CameraPlugin)
+        .add_plugin(Camera)
         .insert_resource(ClearColor(Color::BLUE))
         .add_startup_system(setup)
         .run();
@@ -82,10 +83,5 @@ fn setup(
         ..Default::default()
     });
 
-    commands
-        .spawn_bundle(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(-2.0, 2.5, 5.0).looking_at(Vec3::X, Vec3::Y),
-            ..Default::default()
-        })
-        .insert_bundle(PickingCameraBundle::default());
+    Camera::spawn(commands);
 }
