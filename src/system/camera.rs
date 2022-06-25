@@ -1,9 +1,14 @@
-use bevy::input::{
-    mouse::{MouseScrollUnit, MouseWheel},
-    Input,
-};
 use bevy::prelude::{
-    App, Camera as BevyCamera, EventReader, KeyCode, Plugin, Query, ResMut, Transform, With,
+    App, Camera as BevyCamera, EventReader, KeyCode, Plugin, Query, ResMut, SystemSet, Transform,
+    With,
+};
+use bevy::{
+    input::{
+        mouse::{MouseScrollUnit, MouseWheel},
+        Input,
+    },
+    prelude::Res,
+    window::Windows,
 };
 use lazy_static::lazy_static;
 
@@ -19,7 +24,12 @@ lazy_static! {
 }
 
 lazy_static! {
-    static ref MOOVE_STEP: f32 = 0.05;
+    /// Обычная скорость передвижения камеры
+    static ref MOOVE_SPEED: f32 = 0.05;
+
+    /// Ускореннопе передвижение камеры
+    /// Если курсор находится близко к краю экрана, скорость движения камеры увеличивается
+    static ref ACCELERATED_MOOVE_SPEED: f32 = 0.08;
 }
 
 pub struct CameraPlugin;
@@ -50,25 +60,64 @@ impl CameraPlugin {
     }
 
     /// Передвижения камеры с использованием клавиатуры
-    fn movement_by_keyboard(
+    fn keyboard_test(
         mut camera: Query<&mut Transform, With<BevyCamera>>,
         keys: ResMut<Input<KeyCode>>,
     ) {
         for mut transform in camera.iter_mut() {
             if keys.pressed(KeyCode::Up) {
-                transform.translation.z -= *MOOVE_STEP;
+                transform.translation.z -= *MOOVE_SPEED;
             }
 
             if keys.pressed(KeyCode::Down) {
-                transform.translation.z += *MOOVE_STEP;
+                transform.translation.z += *MOOVE_SPEED;
             }
 
             if keys.pressed(KeyCode::Right) {
-                transform.translation.x += *MOOVE_STEP;
+                transform.translation.x += *MOOVE_SPEED;
             }
 
             if keys.pressed(KeyCode::Left) {
-                transform.translation.x -= *MOOVE_STEP;
+                transform.translation.x -= *MOOVE_SPEED;
+            }
+        }
+    }
+
+    fn movement(mut camera: Query<&mut Transform, With<BevyCamera>>, windows: Res<Windows>) {
+        let window = windows.get_primary().unwrap();
+
+        if let Some(position) = window.cursor_position() {
+            for mut transform in camera.iter_mut() {
+                println!("X - {}, Y - {}", position.x, position.y);
+                match position {
+                    // Движение влево
+                    pos if pos.x < 100 as f32 => {
+                        transform.translation.x -= *MOOVE_SPEED;
+                    }
+
+                    // Движение вправо
+                    pos if pos.x > window.width() - 100 as f32 => {
+                        transform.translation.x += *MOOVE_SPEED;
+                    }
+
+                    // Движение вниз
+                    pos if pos.y < 50 as f32 => match pos.y {
+                        y if y < 25 as f32 => transform.translation.z += *ACCELERATED_MOOVE_SPEED,
+
+                        _ => transform.translation.z += *MOOVE_SPEED,
+                    },
+
+                    // Движение вверх
+                    pos if pos.y > window.height() - 50 as f32 => match pos.y {
+                        y if y > window.height() - 25 as f32 => {
+                            transform.translation.z -= *ACCELERATED_MOOVE_SPEED
+                        }
+
+                        _ => transform.translation.z -= *MOOVE_SPEED,
+                    },
+
+                    _ => (),
+                }
             }
         }
     }
@@ -76,7 +125,12 @@ impl CameraPlugin {
 
 impl Plugin for CameraPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(CameraPlugin::zoom);
-        app.add_system(CameraPlugin::movement_by_keyboard);
+        app.add_system_set(
+            SystemSet::new()
+                .label(super::Systems::Camera)
+                .with_system(CameraPlugin::zoom)
+                .with_system(CameraPlugin::movement)
+                .with_system(CameraPlugin::keyboard_test),
+        );
     }
 }
