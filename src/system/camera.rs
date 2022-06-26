@@ -1,7 +1,7 @@
 use bevy::math::{Mat3, Quat, Vec2, Vec3};
 use bevy::prelude::{
-    App, Commands, Component, EventReader, MouseButton, Mut, PerspectiveCameraBundle, Plugin,
-    Query, SystemSet, Transform,
+    App, Commands, Component, EventReader, MouseButton, PerspectiveCameraBundle, Plugin, Query,
+    SystemSet, Transform,
 };
 use bevy::render::camera::PerspectiveProjection;
 use bevy::{
@@ -16,10 +16,10 @@ use lazy_static::lazy_static;
 
 lazy_static! {
     /// Максимально допустимый масштаб
-    static ref MAX_ZOOM: f32 = 3.0;
+    static ref MAX_ZOOM: f32 = 5.0;
 
     /// Минимально допустимый масштаб
-    static ref MIN_ZOOM: f32 = 15.0;
+    static ref MIN_ZOOM: f32 = 20.0;
 
     static ref MIN_DELTA_Y: f32 = 0.0;
 }
@@ -105,13 +105,6 @@ impl Camera {
             // Проверка только на перевернутость, когда орбита началась или закончилась в этом кадре
             if orbit_button_changed {
                 let up = transform.rotation * Vec3::Y;
-                println!("{} > 0.8 = {}", up.y, up.y > 0.8);
-
-                if up.y > 0.8 {
-                    println!("1");
-                    break;
-                }
-
                 pan_orbit.upside_down = up.y <= 0.0;
             }
 
@@ -135,6 +128,8 @@ impl Camera {
                 // Высота
                 let pitch = Quat::from_rotation_x(-delta_y);
 
+                println!("{:?}", pan_orbit.focus);
+
                 // Вращаться вокруг глобальной оси Y
                 transform.rotation = yaw * transform.rotation;
                 // Вращаться вокруг глобальной оси X
@@ -150,7 +145,7 @@ impl Camera {
                 // Сделать панорамирование пропорциональным расстоянию от точки фокусировки
                 let translation = (right + up) * pan_orbit.radius;
                 pan_orbit.focus += translation;
-            } else if scroll.abs() > 0.0 // Масштабирование
+            } else if scroll.abs() > 0.0  // Масштабирование
                 && sor(scroll, pan_orbit.radius) > *MAX_ZOOM
                 && sor(scroll, pan_orbit.radius) < *MIN_ZOOM
             {
