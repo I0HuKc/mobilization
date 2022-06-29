@@ -1,4 +1,8 @@
 use lazy_static::lazy_static;
+use noise::{
+    utils::{ColorGradient, ImageRenderer, NoiseMapBuilder, PlaneMapBuilder, SphereMapBuilder},
+    *,
+};
 
 lazy_static! {
     /// Сид ключ для уникальной генерации планетарного ландшафта
@@ -89,4 +93,195 @@ lazy_static! {
 
     /// Максимальная глубина рек в планетарных единицах высоты.
     static ref RIVER_DEPTH: f64 = 0.0234375;
+}
+
+pub fn base_continent_def() {
+    /////////////////////////////////////////////////////////////////////////////
+    // Группа функций: определение континента / continent_definition
+    //////////////////////////////////////////////////// /////////////////////////
+
+    /////////////////////////////////////////////////////////////////////////////
+    // Подгруппа функций: определение базового континента / base_continent_definition
+    // (7 функций шума)
+    //
+    // Эта подгруппа приблизительно определяет позиции и базовые отметки
+    // континентов на планете.
+    //
+    // «Базовая отметка» — это отметка местности до того, как какая-либо местность
+    // объекты (горы, холмы и т. д.) размещаются на этой местности.
+    //
+    // -1.0 представляет самую низкую высоту, а +1.0 представляет самую высокую
+    // высоты.
+    //
+
+    // 1: [Модуль continent]: Модуль генерации континентов.
+    // Функция шума имеет большое количество октав, поэтому детали видны на
+    // высокие уровни масштабирования.
+    let base_continent_def_fb0 = Fbm::new()
+        .set_seed(*CURRENT_SEED)
+        .set_frequency(*CONTINENT_FREQUENCY)
+        .set_persistence(0.5)
+        .set_lacunarity(*CONTINENT_LACUNARITY)
+        .set_octaves(14);
+
+    // 2: [Модуль сontinent_with_ranges] Определение положения горных хребтов.
+    // Через функцию шума изменяет значения из модуля континентов, что позволяет отображать более
+    // высокие значения ближе к уровню моря. Это определяет положение горных хребтов.
+    let base_continent_def_cu: Curve<[f64; 3]> = Curve::new(&base_continent_def_fb0);
+    let base_continent_def_cu: Curve<[f64; 3]> = base_continent_def_cu
+        .add_control_point(-2.0000 + *SEA_LEVEL, -1.625 + *SEA_LEVEL)
+        .add_control_point(-1.0000 + *SEA_LEVEL, -1.375 + *SEA_LEVEL)
+        .add_control_point(0.0000 + *SEA_LEVEL, -0.375 + *SEA_LEVEL)
+        .add_control_point(0.0625 + *SEA_LEVEL, 0.125 + *SEA_LEVEL)
+        .add_control_point(0.1250 + *SEA_LEVEL, 0.250 + *SEA_LEVEL)
+        .add_control_point(0.2500 + *SEA_LEVEL, 1.000 + *SEA_LEVEL)
+        .add_control_point(0.5000 + *SEA_LEVEL, 0.250 + *SEA_LEVEL)
+        .add_control_point(0.7500 + *SEA_LEVEL, 0.250 + *SEA_LEVEL)
+        .add_control_point(1.0000 + *SEA_LEVEL, 0.500 + *SEA_LEVEL)
+        .add_control_point(2.0000 + *SEA_LEVEL, 0.500 + *SEA_LEVEL);
+
+    // 3: [модуль carver]: Высокочастотный модуль BasicMulti
+    // Используется последующими шумовыми функциями для вырезания фрагментов из
+    // горных хребтов в модуле "континент-с-хребтами", чтобы  горные хребты
+    // не были полностью непроходимыми.
+    let base_continent_def_fb1 = Fbm::new()
+        .set_seed(*CURRENT_SEED + 1)
+        .set_frequency(*CONTINENT_FREQUENCY * 4.34375)
+        .set_persistence(0.5)
+        .set_lacunarity(*CONTINENT_LACUNARITY)
+        .set_octaves(11);
+
+    // 4: [Модуль scaled_carver]: Модуль масштабирования/смещения.
+    // Масштабирует выводимое значение из модуля carver обычно близкое к 1,0.
+    // Это требуется для шага 5.
+    let base_continent_def_sb: ScaleBias<[f64; 3]> = ScaleBias::new(&base_continent_def_fb1);
+    let base_continent_def_sb: ScaleBias<[f64; 3]> =
+        base_continent_def_sb.set_scale(0.375).set_bias(0.625);
+
+    // 5: [Модуль carved_continent]: Этот модуль с минимальным значением вырезает
+    // куски из модуля континентов с диапазонами. Он делает это, гарантируя
+    // что только минимум выходных значений от масштабируемого модуля `сarver`
+    // и модуль `сontinent_with_ranges` вносят свой вклад в вывод
+    // значение этой подгруппы. В большинстве случаев модуль минимального значения будет
+    // выбирать выходное значение из модуля `сontinent_with_ranges`, так как
+    // выходное значение масштабируемого резчика обычно близко к 1,0. Время от времени,
+    // вывод модуля `scaled_carver` будет меньше, чем вывод значение из модуля `сontinent_with_ranges`.
+    let base_continent_def_mi: Min<[f64; 3]> =
+        Min::new(&base_continent_def_sb, &base_continent_def_cu);
+
+    // 6: [Модуль clamped_continent]
+    // Изменяю вырезаемое модулем `continent`, чтобы гарантировать, что выходное значение
+    //  этой подгруппы между -1,0 и 1,0.
+    let base_continent_def_cl: Clamp<[f64; 3]> =
+        Clamp::new(&base_continent_def_mi).set_bounds(-1.0, 1.0);
+
+    // 7: [Подгруппа base_continent_definition]: Кеширую выходное значение из
+    // модуля `clamped_continent`.
+    let base_continent_def = Cache::new(base_continent_def_cl);
+
+    // ////////////////////////////////////////////////////////////////////////
+    // Подгруппа функций: определение континента / continent_definition (5 функций шума)
+    //
+    // Эта подгруппа искажает выходное значение из определения базового континента
+    // подгруппа, создающая более реалистичный ландшафт.
+    //
+    // Деформация определения базового континента создает более бугристую местность с
+    // скалами и трещинами
+    //
+    // -1.0 представляет самую низкую высоту, а +1.0 представляет самую высокую
+    // высоты.
+    //
+
+    // 1: [Модуль coarse_turbulence]: Модуль турбулентности искажает вывод
+    // значение из подгруппы base_continent_definition, добавляя некоторые грубые
+    // деталь к нему.
+    let continent_def_tu0 = Turbulence::<_>::new(&base_continent_def)
+        .set_seed(*CURRENT_SEED + 10)
+        .set_frequency(*CONTINENT_FREQUENCY * 15.25)
+        .set_power(*CONTINENT_FREQUENCY / 113.75)
+        .set_roughness(13);
+
+    // 2: [Модуль intermediate_turbulence]: Этот модуль турбулентности искажает
+    // выходное значение из модуля `coarse_turbulence`. Эта турбулентность имеет
+    // более высокие частоты, но меньшую мощность, чем у модуля `coarse_turbulence`,
+    // что добавляем какую-то промежуточную деталь.
+    let continent_def_tu1 = Turbulence::<_>::new(continent_def_tu0)
+        .set_seed(*CURRENT_SEED + 11)
+        .set_frequency(*CONTINENT_FREQUENCY * 47.25)
+        .set_power(*CONTINENT_FREQUENCY / 433.75)
+        .set_roughness(12);
+
+    // 3: [Модуль warped_base_continent_definition]: Этот модуль турбулентности
+    // искажает выходное значение модуля `intermediate_turbulence`.
+    // Турбулентность имеет более высокую частоту, но меньшую мощность, чем
+    // модуль `intermediate_turbulence`, добавляя к нему мелкие детали.
+    let continent_def_tu2 = Turbulence::<_>::new(continent_def_tu1)
+        .set_seed(*CURRENT_SEED + 12)
+        .set_frequency(*CONTINENT_FREQUENCY * 95.25)
+        .set_power(*CONTINENT_FREQUENCY / 1019.75)
+        .set_roughness(11);
+
+    // 4: [Модуль select_turbulence]: На этом этапе применяется турбулентность
+    // ко всей подгруппе определения базового континента, производя очень
+    // бурные, нереальные береговые линии. Этот селекторный модуль выбирает
+    // выходные значения из (недеформированной) подгруппы base_continent_definition
+    // и модуля warped_base_continent_definition на их основе выводя
+    // значение из (недеформированной) подгруппы определения базового континента.
+    // Граница выделения находится вблизи уровня моря и имеет относительно гладкую
+    // переход. Фактически, только более высокие области базового континента
+    // искажается; подводные и прибрежные зоны остаются незатронутыми.
+    let continent_def_se =
+        Select::new(&base_continent_def, &continent_def_tu2, &base_continent_def)
+            .set_bounds(*SEA_LEVEL - 0.0375, *SEA_LEVEL + 1000.0375)
+            .set_falloff(0.0625);
+
+    // 5: [Группа continent_definition]: Кэширует выходное значение из
+    // модуля continent_definition. Это выходное значение для всей группы
+    // функций определения континента.
+    let continent_def = Cache::new(&continent_def_se);
+
+    //////////////////////////////////////////////////// /////////////////////////
+    // Группа функций: определение типа местности / terrain_type_definition
+    //////////////////////////////////////////////////// /////////////////////////
+
+    //////////////////////////////////////////////////// /////////////////////////
+    // Подгруппа функций: определение типа местности (3 функции шума)
+    //
+    // Эта подгруппа определяет положение типов местности на планете.
+    //
+    // Типы местности включают, в порядке возрастания шероховатости, равнины, холмы,
+    // и горы.
+    //
+    // Выходное значение этой подгруппы основано на выходном значении из
+    // группы `continent_definition`.
+    // Более пересеченная местность в основном появляется на более высоких участках
+    //
+    // -1.0 представляет самые гладкие типы местности (равнины и под водой) и
+    // +1.0 представляет самые пересеченные типы местности (горы).
+    //
+
+    // 1: [Модуль warped_continent]: Этот модуль турбулентности немного искажает
+    // выходное значение из группы `continent_definition`. Это предотвращает появление
+    // грубой местность исключительно на возвышенностях. Грубе области ландшафта теперь
+    // могут появляться в океане, создавая скалистые острова и фьорды.
+    let terrain_type_def_tu = Turbulence::<_>::new(&continent_def)
+        .set_seed(*CURRENT_SEED + 20)
+        .set_frequency(*CONTINENT_FREQUENCY * 18.125)
+        .set_power(*CONTINENT_FREQUENCY / 20.59375 * *TERRAIN_OFFSET)
+        .set_roughness(3);
+
+    // 2: [Модуль roughness_probability_shift]: Этот модуль террасирования заостряет
+    // края модуля `warped_continent` у уровня моря и опускает уклон в сторону
+    // возвышенностей, что позволяет сузить области в которых появляется
+    // пересеченная местность, повышая "редкость" пересеченной местности
+    // местность.
+    let terrain_type_def_te = Terrace::new(&terrain_type_def_tu)
+        .add_control_point(-1.00)
+        .add_control_point(*SHELF_LEVEL + *SEA_LEVEL / 2.0)
+        .add_control_point(1.00);
+
+    // 3: [Группа terrain_type_definition]: Кэширую выходное значение из
+    // модуля `roughness_probability_shift`. Это выходное значение для
+    // вся группы `terrain-type-definition`.
+    let terrain_type_def = Cache::new(terrain_type_def_te);
 }
