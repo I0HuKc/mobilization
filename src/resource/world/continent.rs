@@ -15,25 +15,25 @@ pub mod continent_definition {
     #[allow(dead_code)]
     fn base_continent_definition() {
         /////////////////////////////////////////////////////////////////////////////
-        // Группа шагов: ОПРЕДЕЛЕНИЕ КОНТИНЕНТОВ
+        // The Steps Group: IDENTIFYING CONTINENTS
         /////////////////////////////////////////////////////////////////////////////
 
         /////////////////////////////////////////////////////////////////////////////
-        // Подгруппа: Базовое определение континента
+        // Subgroup: Basic Continent Definition
         /////////////////////////////////////////////////////////////////////////////
         //
-        // В процессе выполнения шагов определяю позиции и базовые отметки
-        // континентов в мире.
+        // In the process of completing the steps, determine the positions and baseline markers of
+        // continents in the world.
         //
-        // «Базовая отметка» — это отметка местности до того, как какая-либо местность
-        // объекты (горы, холмы и т. д.) размещаются на этой местности.
+        // "Base mark" is the mark of the terrain before any terrain
+        // objects (mountains, hills, etc.) are placed on that terrain.
         //
-        // -1.0 представляет самую низкую высоту, а +1.0 представляет самую высокую высоту.
+        // -1.0 represents the lowest elevation and +1.0 represents the highest elevation.
         /////////////////////////////////////////////////////////////////////////////
         //
-        // Шаг 1. Генерация континентов.
-        // В функцию шума ставлю большое кол-во оклав, поэтому детали будут видны на
-        // высоких уровнях масштабирования.
+        // Step 1: Generate Continents.
+        // I put a large number of oclaves in the noise function, so the details will be visible at // high zoom levels.
+        // high zoom levels.
         let base_continent_def_fb0 = Fbm::new()
             .set_seed(*CURRENT_SEED)
             .set_frequency(*CONTINENT_FREQUENCY)
@@ -41,9 +41,9 @@ pub mod continent_definition {
             .set_lacunarity(*CONTINENT_LACUNARITY)
             .set_octaves(14);
 
-        // Шаг 2. Определения положения горных хребтов.
-        // Использую функцию шума для изменения здачения полученного на шаге 1,
-        // что позволяет отображать более высокие значения ближе к уровню моря.
+        // Step 2: Determining the position of mountain ranges.
+        // I use the noise function to change the building obtained in step 1,
+        // which allows displaying higher values closer to the sea level.
         let base_continent_def_cu: Curve<[f64; 3]> = Curve::new(&base_continent_def_fb0);
         let base_continent_def_cu: Curve<[f64; 3]> = base_continent_def_cu
             .add_control_point(-2.0000 + *SEA_LEVEL, -1.625 + *SEA_LEVEL)
@@ -57,9 +57,9 @@ pub mod continent_definition {
             .add_control_point(1.0000 + *SEA_LEVEL, 0.500 + *SEA_LEVEL)
             .add_control_point(2.0000 + *SEA_LEVEL, 0.500 + *SEA_LEVEL);
 
-        // Шаг 3. Использую высокочастотный модуль BasicMulti с последующими
-        // шумовыми функциями для вырезания фрагментов из горных хребтов,
-        // чтобы горные хребты не были полностью непроходимыми.
+        // Step 3. Using the BasicMulti high-frequency module followed by the
+        // noise functions to cut fragments out of the mountain ranges,
+        // so that the mountain ranges are not completely impassable.
         let base_continent_def_fb1 = Fbm::new()
             .set_seed(*CURRENT_SEED + 1)
             .set_frequency(*CONTINENT_FREQUENCY * 4.34375)
@@ -67,216 +67,216 @@ pub mod continent_definition {
             .set_lacunarity(*CONTINENT_LACUNARITY)
             .set_octaves(11);
 
-        // Шаг 4. Масштабирую полученное значение на предыдущем шаге (обычно близкое к 1.0).
+        // Step 4: Scale the value obtained in the previous step (usually close to 1.0).
         let base_continent_def_sb: ScaleBias<[f64; 3]> = ScaleBias::new(&base_continent_def_fb1);
         let base_continent_def_sb: ScaleBias<[f64; 3]> =
             base_continent_def_sb.set_scale(0.375).set_bias(0.625);
 
-        // Шаг 5. Вырезание континентов.
-        // Из полученных значений на шаге 2, вырезаю куски с минимальными значениями.
-        // Это гарантирует, что только минимум выходных значений от шага 3 и шага 2
-        // вносят свой вклад в вывод значений из этой функции.
-        // В большинстве случаев будет выбираться выходное значение полученное на шаге 2,
-        // так как выходно е значение масштабируемого резчика обычно близко к 1,0.
-        // Время от времени, результат шага 4 будет меньше, чем вывод значение из мшага 2.
+        // Step 5: Cutting out continents.
+        // From the values obtained in step 2, I cut out chunks with minimum values.
+        // This ensures that only the minimum output values from step 3 and step 2
+        // contribute to the output values from this function.
+        // In most cases, the output value from step 2 will be selected,
+        // since the output value of the scaled cutter is usually close to 1.0.
+        // Occasionally, the result of step 4 will be smaller than the output value from step 2.
         let base_continent_def_mi: Min<[f64; 3]> =
             Min::new(&base_continent_def_sb, &base_continent_def_cu);
 
-        // Шаг 6. Скрепление континентов.
-        // Изменяю полученные значения на шаге 1, чтобы гарантировать,
-        // что выходное значение этой функции между -1,0 и 1,0.
+        // Step 6: Bonding the continents.
+        // I modify the values obtained in step 1 to ensure,
+        // that the output value of this function is between -1,0 and 1,0.
         let base_continent_def_cl: Clamp<[f64; 3]> =
             Clamp::new(&base_continent_def_mi).set_bounds(-1.0, 1.0);
 
-        // Финальный шаг подгруппы.
-        // Кеширую резьтат выполнения предыдущего шага.
+        // Final step of the subgroup.
+        // Cache the thread of the previous step.
         let base_continent_def: Cache<Clamp<[f64; 3]>> = Cache::new(base_continent_def_cl);
 
         /////////////////////////////////////////////////////////////////////////////
-        // Подгруппа: Определение континента
+        // Subgroup: Continent Definition
         /////////////////////////////////////////////////////////////////////////////
         //
-        // В процессе выполнения шагов искажаю выходное значение полученное в
-        // результате выполнения функции `base_continent_definition`,
-        // создавая более реалистичный ландшафт.
+        // While executing the steps, I distort the output value obtained in the
+        // result of the `base_continent_definition` function,
+        // creating a more realistic landscape.
         //
-        // Деформация базовых континентов создает более бугристую местность
-        // с скалами и трещинами.
+        // Deforming the base continents creates a more bumpy terrain.
+        // with rocks and cracks.
         //
-        // -1.0 представляет самую низкую высоту, а +1.0 представляет самую высокую высоту.
+        // -1.0 represents the lowest elevation and +1.0 represents the highest elevation.
         /////////////////////////////////////////////////////////////////////////////
 
-        // Шаг 1. Используя грубую турбулентность искажаю значение полученное при базовом
-        // определении континентов, добавляя некоторые случайные грубые детали к нему.
+        // Step 1. Using coarse turbulence, I distort the value obtained from the baseline
+        // definition of continents by adding some random coarse details to it.
         let continent_def_tu0 = Turbulence::<_>::new(&base_continent_def)
             .set_seed(*CURRENT_SEED + 10)
             .set_frequency(*CONTINENT_FREQUENCY * 15.25)
             .set_power(*CONTINENT_FREQUENCY / 113.75)
             .set_roughness(13);
 
-        // Шаг 2. Используя промежуточную турбулентность искажаю значения
-        // полученные на шаге 1. Применяю более высокие частоты, но меньшую мощность,
-        // чем в шаге 1, что позволяет добавить промежуточные детали.
+        // Step 2. Using the intermediate turbulence I distort the values
+        // obtained in step 1. I apply higher frequencies but lower power,
+        // than in step 1, which allows to add intermediate details.
         let continent_def_tu1 = Turbulence::<_>::new(continent_def_tu0)
             .set_seed(*CURRENT_SEED + 11)
             .set_frequency(*CONTINENT_FREQUENCY * 47.25)
             .set_power(*CONTINENT_FREQUENCY / 433.75)
             .set_roughness(12);
 
-        // Шаг 3. Деформирование базового определения континентов.
-        // Так же использую турбулентность, искажаю результат шага 2.
-        // Турбулентность имеет более высокую частоту, но меньшую мощность, чем
-        // в шаге 2, что позволяет добавить мелкие детали.
+        // Step 3: Deforming the basic definition of continents.
+        // I also use turbulence, distorting the result of step 2.
+        // Turbulence has a higher frequency, but less power than in step 2.
+        // in step 2, which allows to add fine details.
         let continent_def_tu2 = Turbulence::<_>::new(continent_def_tu1)
             .set_seed(*CURRENT_SEED + 12)
             .set_frequency(*CONTINENT_FREQUENCY * 95.25)
             .set_power(*CONTINENT_FREQUENCY / 1019.75)
             .set_roughness(11);
 
-        // Шаг 4. Выборочная турбулентность.
-        // Ко всей подгруппе определеных базового континентов, применяю турбулентность,
-        // что позволяет получить более бурные береговые линии. Селекторная функция выбирает
-        // выходные значения из (недеформированной) подгруппы базово определенных континентов и шага 3.
-        // На их основе выводится значение из (недеформированной) подгруппы определения базового континента.
-        // Граница выделения находится вблизи уровня моря и имеет относительно гладкий переход.
-        // Фактически, искажаются только высокие области базово определенных континентов.
-        // Подводные и рибрежные зоны остаются незатронутыми.
+        // Step 4: Selective turbulence.
+        // To the entire subset of defined base continents, I apply turbulence,
+        // which allows for more turbulent coastlines. The selector function selects
+        // output values from the (undeformed) subgroup of base-defined continents and step 3.
+        // These are used to output a value from the (undeformed) subset of the base-defined continent definition.
+        // The selection boundary is near sea level and has a relatively smooth transition.
+        // In fact, only the high regions of the base-defined continents are distorted.
+        // The submarine and riparian zones remain unaffected.
         let continent_def_se =
             Select::new(&base_continent_def, &continent_def_tu2, &base_continent_def)
                 .set_bounds(*SEA_LEVEL - 0.0375, *SEA_LEVEL + 1000.0375)
                 .set_falloff(0.0625);
 
-        // Финальный шаг подгруппы.
-        // Кеширую полученный результат.
-        // Это выходное значение для всей группы `ОПРЕДЕЛЕНИЕ КОНТИНЕНТОВ`.
+        // Final step of the subgroup.
+        // Caching the obtained result.
+        // This is the output value for the whole group `CONTINENT DEFINITION`.
         let continent_def = Cache::new(&continent_def_se);
 
         /////////////////////////////////////////////////////////////////////////////
-        // Группа шагов: ОПРЕДЕЛЕНИЕ ТИПА МЕСТНОСТИ
+        // Group of Steps: DETERMINING THE TYPE OF TERRAIN
         /////////////////////////////////////////////////////////////////////////////
 
         /////////////////////////////////////////////////////////////////////////////
-        // Подгруппа: Определение типа местности
+        // Subgroup: Terrain type definition
         /////////////////////////////////////////////////////////////////////////////
         //
-        // В результате выполнения шагов, определяю положение типов местности в мире.
-        // Типы местности создаются, в порядке возрастания шероховатости,
-        // равнины, холмы и горы.
+        // As a result of the steps, I determine the position of terrain types in the world.
+        // Terrain types are created, in order of increasing roughness,
+        // plains, hills, and mountains.
         //
-        // Выходное значение этой подгруппы основано на выходном значении
-        // результатов выполнения группы `ОПРЕДЕЛЕНИЕ КОНТИНЕНТОВ`
+        // The output value of this subgroup is based on the output value of the
+        // the output value of the `CONTINENT DEFINITION' group.
         //
-        // -1.0 представляет самые гладкие типы местности (равнины и под водой) и
-        // +1.0 представляет самые пересеченные типы местности (горы).
+        // -1.0 represents the smoothest terrain types (plains and underwater) and
+        // +1.0 represents the most rugged terrain types (mountains).
         /////////////////////////////////////////////////////////////////////////////
 
-        // Шаг 1. Искривление континентов.
-        // Используя турбулентность немного искажаю результат выполнения
-        // группы `ОПРЕДЕЛЕНИЕ КОНТИНЕНТОВ`. Это позволяет предотвратить воявление
-        // грубой местности исключительно на возвышенностях. Грубе области ландшафта теперь
-        // могут появляться в океане, создавая скалистые острова и фьорды.
+        // Step 1: Warp the continents.
+        // Using turbulence to slightly distort the result of the execution of the
+        // of the `CONTINENT DEFINITION' group. This prevents the occurrence of
+        // rough terrain exclusively on uplands. Rough terrain areas
+        // can appear in the ocean, creating rocky islands and fjords.
         let terrain_type_def_tu = Turbulence::<_>::new(&continent_def)
             .set_seed(*CURRENT_SEED + 20)
             .set_frequency(*CONTINENT_FREQUENCY * 18.125)
             .set_power(*CONTINENT_FREQUENCY / 20.59375 * *TERRAIN_OFFSET)
             .set_roughness(3);
 
-        // Шаг 2. Сдвиг вероятности шероховатости.
-        // Использую трассировку для заострения искривленных континентов на уровне моря
-        // и опускаю наклон в сторону возвышенностей, что позволяет сузить области
-        // которых появляется пересеченная местность, повышая "редкость" пересеченной местности.
+        // Step 2: Shift the roughness probability.
+        // I use tracing to sharpen the curved continents at sea level
+        // and lowering the slope towards the uplands to narrow the areas //
+        // where rugged terrain appears, increasing the "sparseness" of the rugged terrain.
         let terrain_type_def_te = Terrace::new(&terrain_type_def_tu)
             .add_control_point(-1.00)
             .add_control_point(*SHELF_LEVEL + *SEA_LEVEL / 2.0)
             .add_control_point(1.00);
 
-        // Финальный шаг подгруппы.
-        // Кеширую полученный результат.
-        // Это выходное значение для всей группы `ОПРЕДЕЛЕНИЕ ТИПА МЕСТНОСТИ`.
+        // Final step of the subgroup.
+        // Caching the result obtained.
+        // This is the output value for the whole group `LOCATION TYPE DEFINITION`.
         let terrain_type_def = Cache::new(terrain_type_def_te);
 
         /////////////////////////////////////////////////////////////////////////////
-        // Группа шагов: ГОРЫ
+        // The Steps Group: MOUNTAINS
         /////////////////////////////////////////////////////////////////////////////
 
         /////////////////////////////////////////////////////////////////////////////
-        // Подгруппа: Определение основания гор
+        // Subgroup: Defining the base of mountains
         /////////////////////////////////////////////////////////////////////////////
         //
-        // В результате выполнения шагов, генерирую высоты подножия горы.
+        // As a result of the steps, generate the elevation of the base of the mountain.
         //
-        // В других подгруппах добавляю горные хребты с понижением к базовым отметкам.
+        // In other subgroups, I add mountain ranges with decreases to the base elevations.
         //
-        // -1.0 представляет самые гладкие типы местности (равнины и под водой) и
-        // +1.0 представляет самые пересеченные типы местности (горы).
+        // -1.0 represents the smoothest terrain types (plains and underwater) and
+        // +1.0 represents the roughest terrain types (mountains).
         /////////////////////////////////////////////////////////////////////////////
 
-        // Шаг 1. Определение горного хребта.
-        // Для генерацию использую функцию ребристого мультифрактального шума.
+        // Step 1: Define a mountain range.
+        // I use the ribbed multifractal noise function to generate it.
         let mountain_base_def_rm0 = RidgedMulti::new()
             .set_seed(*CURRENT_SEED + 30)
             .set_frequency(1723.0)
             .set_lacunarity(*MOUNTAIN_LACUNARITY)
             .set_octaves(4);
 
-        // Шаг 2. Определение скалистых горных хребтов.
-        // Использую функцию масштаба/смещения, масштабирую определенные горные хребты
-        // полученные на шаге 1 так, чтобы его хребты не были слишком высоко.
-        // Делаю это, чтобы позже в другой подгруппе добавить фактическую
-        // гористую местность к этим хребтам.
+        // Step 2: Identify rocky mountain ranges.
+        // Using the scale/shift function, scale the defined mountain ranges
+        // obtained in step 1 so that its ridges are not too high.
+        // I do this so that later, in another subgroup, I can add the actual
+        // mountainous terrain to these ridges.
         let mountain_base_def_sb0: ScaleBias<[f64; 3]> = ScaleBias::new(&mountain_base_def_rm0);
         let mountain_base_def_sb0 = mountain_base_def_sb0.set_scale(0.5).set_bias(0.375);
 
-        // Шаг 3. Определение речных долин.
-        // Использую функцию ребристого мультифрактального шума генерирует речные долины.
-        // Применяю гораздо более низкую частоту, чем для генерации горных хребтов.
-        // Это необходимо, чтобы за пределами долины появилось больше горных хребтов.
-        // Важно записать, что эта шумовая функция генерирует
-        // ребристо-мультифрактальные шум, использующий только одну октаву
+        // Step 3: Determine river valleys.
+        // I use the ribbed multifractal noise function to generate river valleys.
+        // I apply much lower frequency than for generation of mountain ranges.
+        // This is necessary so that more mountain ranges appear outside the valley.
+        // It is important to record that this noise function generates a
+        // ribbed-multifractal noise using only one octave
         let mountain_base_def_rm1 = RidgedMulti::new().set_seed(*CURRENT_SEED + 31);
         let mountain_base_def_rm1 = mountain_base_def_rm1
             .set_frequency(367.0)
             .set_lacunarity(*MOUNTAIN_LACUNARITY)
             .set_octaves(1);
 
-        // Шаг 4. Масштабирование речных долин.
-        // Использую функцию масштаба/смещения применяю коэффициент масштабирования -2.0
-        // для выходного значения шага 3.
-        // Это растягивает возможные значения высоты, потому что ребро на одну октаву
-        // мультифрактального шума имеет меньший диапазон выходных значений, чем
-        // ребристо-мультифрактальный шум.
-        // Отрицательный коэффициент масштабирования инвертирует диапазон выходного значения,
-        // поворачивая хребты от выходного значения шага 3.
+        // Step 4: Scaling of river valleys.
+        // I use the scale/offset function and apply the scaling factor -2.0
+        // for the output value of step 3.
+        // This stretches the possible pitch values because the rib is one octave higher
+        // of multifractal noise has a smaller range of output values than the
+        // rib-to-multifractal noise.
+        // A negative scaling factor inverts the output value range,
+        // rotating the ridges from the output value of step 3.
         let mountain_base_def_sb1: ScaleBias<[f64; 3]> = ScaleBias::new(&mountain_base_def_rm1);
         let mountain_base_def_sb1 = mountain_base_def_sb1.set_scale(-2.0).set_bias(-0.5);
 
-        // Шаг 5. Создаю константу
+        // Step 5. Create a constant
         let mountain_base_def_co = Constant::new(-1.0);
 
-        // Шаг 6. Горы и долины.
-        // Объединяю в блендере результаты шага 3 и шага 4. Это приводит к тому, что
-        // низменные участки местности становятся гладкими, а возвышенные участки
-        // местности содержат гребни. Для этого используется резуьтат выполнения шага 4
-        // в качестве модуля управления.
+        // Step 6: Mountains and valleys.
+        // I combine the results of step 3 and step 4 in a blender. This results in
+        // the low-lying areas are smooth, and the upland areas have ridges.
+        // terrain contain ridges. The result of step 4 is used for this purpose.
+        // as a control module.
         let mountain_base_def_bl: Blend<[f64; 3]> = Blend::new(
             &mountain_base_def_co,
             &mountain_base_def_sb0,
             &mountain_base_def_sb1,
         );
 
-        // Шаг 7. Грубая турбулентность
-        // Используя турбулентность искажаю результат из шага 6, добавляя
-        // случайные грубые детали нему.
+        // Step 7. Rough turbulence
+        // Using turbulence I distort the result from step 6 by adding
+        // random coarse details to it.
         let mountain_base_def_tu0 = Turbulence::<_>::new(&mountain_base_def_bl)
             .set_seed(*CURRENT_SEED + 32)
             .set_frequency(1337.0)
             .set_power(1.0 / 6730.0 * *MOUNTAINS_TWIST)
             .set_roughness(4);
 
-        // Шаг 8. Искревление гор и вершин.
-        // Используя турбулентность  искривляю результат грубой турбулентности.
-        // Данная турбулентность имеет более высокие частоты, но меньшую мощность,
-        // чем в грубой турбулентности. Это добавляет случайные мелкие детали.
+        // Step 8: Warp mountains and peaks.
+        // Using turbulence warp the result of coarse turbulence.
+        // This turbulence has higher frequencies but less power,
+        // than the coarse turbulence. This adds random fine detail.
         let mountain_base_def_tu1: Turbulence<&Turbulence<&Blend<[f64; 3]>>> =
             Turbulence::<_>::new(&mountain_base_def_tu0)
                 .set_seed(*CURRENT_SEED + 33)
@@ -284,23 +284,23 @@ pub mod continent_definition {
                 .set_power(1.0 / 120157.0 * *MOUNTAINS_TWIST)
                 .set_roughness(6);
 
-        // Финальный шаг подгруппы.
-        // Кеширую полученный результат искривленных гор и долин.
+        // Final step of the subgroup.
+        // Kesh the obtained result of curved mountains and valleys.
         let mountain_base_def = Cache::new(&mountain_base_def_tu1);
 
         /////////////////////////////////////////////////////////////////////////////
-        // Подгруппа: Высокогорная местность
+        // Subgroup: High Mountain Terrain
         /////////////////////////////////////////////////////////////////////////////
         //
-        // Эта подгруппа генерирует гористую местность, которая появляется на высоте
-        // возвышенности в пределах горных хребтов.
+        // This subgroup generates mountainous terrain that appears at the height of the
+        // elevation within mountain ranges.
         //
-        // -1.0 представляет самые гладкие типы местности (равнины и под водой) и
-        // +1.0 представляет самые пересеченные типы местности (горы).
+        // -1.0 represents the smoothest terrain types (plains and underwater) and
+        // +1.0 represents the most rugged terrain types (mountains).
         /////////////////////////////////////////////////////////////////////////////
 
-        // Шаг 1. Генерация гор.
-        // Использую функцию мультифрактального шума.
+        // Step 1: Generate Mountains.
+        // I use the multifractal noise function.
         let mountainous_high_rm0 = RidgedMulti::new().set_seed(*CURRENT_SEED + 40);
         let mountainous_high_rm0 = mountainous_high_rm0
             .set_frequency(2371.0)
@@ -313,39 +313,39 @@ pub mod continent_definition {
             .set_lacunarity(*MOUNTAIN_LACUNARITY)
             .set_octaves(3);
 
-        // Шаг 2. Высокогорье
-        // Попытка генерации большего кол-ва гор за счет долин. Делаю это за счет
-        // обеспечения максимум выходных значений из двух ребристых функции
-        // мультифрактального шума шага 1.
+        // Step 2: Highlands
+        // Trying to generate more mountains at the expense of valleys. I do this by
+        // providing maximum output values from two ribbed functions
+        // the multifractal noise of step 1.
         let mountainous_high_ma: Max<[f64; 3]> =
             Max::new(&mountainous_high_rm0, &mountainous_high_rm1);
 
-        // Шаг 3. Искажение высокогорья.
-        // Использую турбулентность добавляю случайние детали.
+        // Step 3: Distort the highlands.
+        // I use turbulence and add random details.
         let mountainous_high_tu = Turbulence::<_>::new(&mountainous_high_ma)
             .set_seed(*CURRENT_SEED + 42)
             .set_frequency(31511.0)
             .set_power(1.0 / 180371.0 * *MOUNTAINS_TWIST)
             .set_roughness(4);
 
-        // Финальный шаг подгруппы.
-        // Кеширую результат выполнения данной подгруппы.
+        // Final step of the subgroup.
+        // Cache the result of this subgroup execution.
         let mountainous_high = Cache::new(mountainous_high_tu);
 
         /////////////////////////////////////////////////////////////////////////////
-        // Подгруппа: Низины/Низкогорная местность
+        // Subgroup: Lowlands/Low Mountainous Areas
         /////////////////////////////////////////////////////////////////////////////
         //
-        // Эта подгруппа генерирует гористую местность, которая появляется при низких
-        // возвышенностях в долинах рек.
+        // This subgroup generates upland terrain that appears at low
+        // elevations in river valleys.
         //
-        // -1.0 представляет самые гладкие типы местности (равнины и под водой) и
-        // +1.0 представляет самые пересеченные типы местности (горы).
+        // -1.0 represents the smoothest terrain types (plains and underwater) and
+        // +1.0 represents the most rugged terrain types (mountains).
         /////////////////////////////////////////////////////////////////////////////
 
-        // Шаг 1. Основание низин
-        // Использую функцию ребристого мультифрактального шума, генерирую
-        // низкогорную местность.
+        // Step 1: Basis of lowlands
+        // I use the ribbed multifractal noise function, generating the
+        // lowland terrain.
         let mountainous_low_rm0 = RidgedMulti::new()
             .set_seed(*CURRENT_SEED + 50)
             .set_frequency(1381.0)
@@ -358,65 +358,65 @@ pub mod continent_definition {
             .set_lacunarity(*MOUNTAIN_LACUNARITY)
             .set_octaves(8);
 
-        // Шаг 2. Создание ландшафта низин.
-        // Использую умножение для объединения двух функций гребенчатого
-        // мультифрактального шума значений из шага 1.
-        // Это вызывает появление следующего ландшафта:
+        // Step 2: Create a lowland landscape.
+        // I use multiplication to combine the two functions of the comb
+        // multifractal noise values from step 1.
+        // This causes the following landscape to appear:
         //
-        // - Трещины — появляются при перемножении двух отрицательных выходных значений.
+        // - Cracks - appear when two negative output values are multiplied.
         //
-        // - Плоские области — появляются когда положительное и
-        //   отрицательное выходное значение перемножаются.
+        // - Flat areas - appear when positive and
+        // negative output values are multiplied.
         //
-        // - Ребра — появляются при перемножении двух положительных выходных значений.
+        // - Ribs - appear when two positive output values are multiplied.
         let mountainous_low_mu: Multiply<[f64; 3]> =
             Multiply::new(&mountainous_low_rm0, &mountainous_low_rm1);
 
-        // Финальный шаг подгруппы.
-        // Кеширую результат выполнения данной подгруппы.
+        // Final step of the subgroup.
+        // Cache the result of this subgroup execution.
         let mountainous_low = Cache::new(&mountainous_low_mu);
 
         /////////////////////////////////////////////////////////////////////////////
-        // Подгруппа: Горная местность
+        // Subgroup: Mountainous terrain
         /////////////////////////////////////////////////////////////////////////////
         //
-        // Эта подгруппа генерирует окончательный горный ландшафт, комбинируя
-        // результат генерации из высокогорья и низкогорья.
+        // This subgroup generates the final mountainous terrain by combining the
+        // the result of the generation from the highlands and lowlands.
         //
-        // -1.0 представляет самые гладкие типы местности (равнины и под водой) и
-        // +1.0 представляет самые пересеченные типы местности (горы).
+        // -1.0 represents the smoothest terrain types (plains and underwater) and
+        // +1.0 represents the roughest terrain types (mountains).
         /////////////////////////////////////////////////////////////////////////////
 
-        // Шаг 1. Масштабирование низкогорной местности.
-        // Масштабирую выходное значение из подгруппы `Низины/Низкогорная местность`
-        // до очень низкого значения и смещаю его в сторону -1.0. В результате
-        // низкогорные местности становятся более плоскими с небольшими возвышенностями.
-        // Так же. низкие горы появляются в самых низких районах данной местности.
+        // Step 1: Scale low-altitude terrain.
+        // Scale the output value from the `Lowland/Low Terrain' subgroup
+        // to a very low value and shift it towards -1.0. As a result
+        // low-altitude terrain becomes flatter with small elevations.
+        // Likewise. low mountains appear in the lowest areas of a given terrain.
         let mountainous_terrain_sb0 = ScaleBias::new(&mountainous_low)
             .set_scale(0.03125)
             .set_bias(-0.96875);
 
-        // Шаг 2. Масштабирование высокогорной местности.
-        // Масштабирую выходное значение из подгруппы `Высокогорье` до 1/4
-        // от своего начального выходного значения и смещаю его так, чтобы его выходное
-        // значение обычно положительным.
+        // Step 2: Scaling of high-mountainous terrain.
+        // I scale the output value from the `Highlands` subgroup to 1/4
+        // of its initial output value and shift it so that its output
+        // value is usually positive.
         let mountainous_terrain_sb1 = ScaleBias::new(&mountainous_high)
             .set_scale(0.25)
             .set_bias(0.25);
 
-        // Шаг 3. Еще немного гор.
-        // Вывожу дополнительное значение из шага 2, чтобы горы появлялись
-        // по всей местности.
+        // Step 3: Some more mountains.
+        // Derive an additional value from step 2 so that the mountains appear
+        // all over the terrain.
         let mountainous_terrain_ad: Add<[f64; 3]> =
             Add::new(&mountainous_terrain_sb1, &mountain_base_def);
 
-        // Шаг 3.
-        // Так как сейчас вся местность покрыта высокогорной местностью, даже на низких высотах.
-        // Появление высокогорья должно ограничиваться только верхами возвышенностей.
-        // Создаю отображение  гористой местности  в низкогорьях.
-        // Делаю это при помощи шумовой функции, которая выбирает выходное значение из подгруппы
-        // гористой местности, если выходное значение из горной базы выше установленной суммы.
-        // Иначе этот шум выбирает выходное значение из масштабированного низкогорного ландшафта.
+        // Step 3.
+        // Since the entire terrain is now covered by highland terrain, even at low altitudes.
+        // The appearance of highlands should be limited to the tops of elevations only.
+        // I create a mapping of the highlands to the lowlands.
+        // I do this with a noise function that selects the output value from the subgroup of
+        // mountainous terrain, if the output value from the mountain base is higher than the set sum.
+        // Otherwise, this noise selects the output value from the scaled lowland terrain.
         let mountainous_terrain_se = Select::new(
             &mountainous_terrain_sb0,
             &mountainous_terrain_ad,
@@ -425,44 +425,44 @@ pub mod continent_definition {
         .set_bounds(-0.5, 999.5)
         .set_falloff(0.5);
 
-        // Шаг 4. Масштабирование горной местности.
-        // Немного уменьшаю диапазон выходного значения шага 3, уменьшая высоту
-        // горных вершин.
+        // Step 4: Scaling the mountainous terrain.
+        // I slightly reduce the range of the output value of step 3, reducing the height of the
+        // mountain peaks.
         let mountainous_terrain_sb2 = ScaleBias::new(&mountainous_terrain_se)
             .set_scale(0.8)
             .set_bias(0.0);
 
-        // Шаг 5. Покрытие льдом.
+        // Step 5: Ice coating.
         //
-        // TODO: ЕСТЬ БАГ
+        // TODO: THERE'S A BUG
         //
-        // Применяю экспоненциальную кривую к выходному значению шага 4.
-        //  Это приводит к тому, что склоны гор плавно увеличиваемся к более высоким отметкам,
-        // как если бы ледник стачивал эти горы.
+        // I apply an exponential curve to the output value of step 4.
+        // This causes the mountainsides to increase smoothly to higher elevations,
+        // as if a glacier is grinding down these mountains.
         //
-        // Функция экспоненциальной кривой ожидает выходное значение в диапазоне от -1,0 до +1,0.
+        // The exponential curve function expects an output value between -1.0 and +1.0.
         let mountainous_terrain_ex =
             Exponent::new(&mountainous_terrain_sb2).set_exponent(*MOUNTAIN_GLACIATION);
 
-        // Финальный шаг для все группы.
-        // Кеширую полученный промежуточный результат.
+        // Final step for all groups.
+        // Cache the obtained intermediate result.
         let mountainous_terrain = Cache::new(&mountainous_terrain_ex);
+        
+        /////////////////////////////////////////////////////////////////////////////
+        // Band of Steps: HILLS.
+        /////////////////////////////////////////////////////////////////////////////
 
         /////////////////////////////////////////////////////////////////////////////
-        // Группа шагов: ХОЛМЫ
-        /////////////////////////////////////////////////////////////////////////////
-
-        /////////////////////////////////////////////////////////////////////////////
-        // Подгруппа: Холмистая местность
+        // Subgroup: Hilly terrain
         /////////////////////////////////////////////////////////////////////////////
         //
-        // Эта подгруппа генерирует холмистую местность.
+        // This subgroup generates hilly terrain.
         //
-        // -1.0 представляет самые гладкие типы местности (равнины и под водой) и
-        // +1.0 представляет самые пересеченные типы местности (горы).
+        // -1.0 represents the smoothest terrain types (plains and underwater) and
+        // +1.0 represents the roughest terrain types (mountains).
         /////////////////////////////////////////////////////////////////////////////
 
-        // Шаг 1. Генерация холмов с применением волновой функции
+        // Step 1: Generate hills using the wave function
         let hilly_terrain_bi = Billow::new()
             .set_seed(*CURRENT_SEED + 60)
             .set_frequency(1663.0)
@@ -470,67 +470,67 @@ pub mod continent_definition {
             .set_lacunarity(*HILLS_LACUNARITY)
             .set_octaves(6);
 
-        // Шаг 2. Применяю  масштабирования/смещения для результата из шага 1.
-        // Это убирает слишком высокие вершины.
+        // Step 2: Apply scaling/offset to the result from step 1.
+        // This removes too high vertices.
         let hilly_terrain_sb0: ScaleBias<[f64; 3]> = ScaleBias::new(&hilly_terrain_bi);
         let hilly_terrain_sb0 = hilly_terrain_sb0.set_scale(0.5).set_bias(0.5);
 
-        // Шаг 3. Создание речных долин.
-        // Использую функцию ребристого мультифрактального шума для генерации речных долин.
-        // Задаю гораздо более низкую частоту, чтобы появлялось больше холмов между долинами.
+        // Step 3: Create river valleys.
+        // I use the ribbed multifractal noise function to generate river valleys.
+        // I set a much lower frequency so that more hills appear between the valleys.
         let hilly_terrain_rm = RidgedMulti::new()
             .set_seed(*CURRENT_SEED + 61)
             .set_frequency(367.5)
             .set_lacunarity(*HILLS_LACUNARITY)
             .set_octaves(1);
 
-        // Шаг 4. Применяю коэффициент масштабирования -2.0 для выходного значния шага 3.
-        // Это растягивает возможные значения высоты, поскольку однооктавный
-        // ребристо-мультифрактальный шум имеет меньший диапазон выходных значений,
-        // чем многооктавный ребристо-мультифрактальный шум. Отрицательный коэффициент
-        // масштабирования инвертирует диапазон выходного значения, поворачивая хребты
-        // от долин рек в долины.
+        // Step 4: I apply a scaling factor of -2.0 to the output value of step 3.
+        // This stretches the possible height values, because the single-octave
+        // ribbed-multifractal noise has a smaller range of output values,
+        // than multi-octave ribbed-multifractal noise. The negative coefficient
+        // scaling inverts the range of the output value by rotating the ridges
+        // from river valleys into valleys.
         let hilly_terrain_sb1: ScaleBias<[f64; 3]> = ScaleBias::new(&hilly_terrain_rm);
         let hilly_terrain_sb1 = hilly_terrain_sb1.set_scale(-2.0).set_bias(-1.0);
 
         let hilly_terrain_co = Constant::new(-1.0);
 
-        // Шаг 5. Объединяю результат генерации холмов и речнх долин.
-        // Это приводит к тому, что низменные участки местности становятся гладкими,
-        // а возвышенные участки местности содержат гребни.
+        // Step 5: Combine the result of hills and river valleys generation.
+        // This causes lowland areas to become smooth,
+        // and upland areas contain ridges.
         let hilly_terrain_bl: Blend<[f64; 3]> =
             Blend::new(&hilly_terrain_co, &hilly_terrain_sb1, &hilly_terrain_sb0);
 
-        // Шаг 6. Использую функцию масштаба/смещения немного уменьшаю диапазон
-        // выходного значения из шага 5, что позволяет уменьшить высоту вершин холмов.
+        // Step 6: Using the scale/shift function, I slightly reduce the range of the
+        // of the output value from step 5, which allows to reduce the height of the hilltops.
         let hilly_terrain_sb2: ScaleBias<[f64; 3]> = ScaleBias::new(&hilly_terrain_bl)
             .set_scale(0.75)
             .set_bias(-0.25);
 
-        // Шаг 7. Увеличение уклона холмов.
-        // На больших высотах эта функция экспоненциальной кривой применяется
-        // к выходному значению из шага 6. Эта функция экспоненциальной кривой ожидает,
-        // что входное значение будет находиться в диапазоне от -1,0 до 1,0.
+        // Step 7: Increase the slope of hills.
+        // At higher altitudes, this exponential curve function is applied
+        // to the output value from step 6. This exponential curve function expects,
+        // that the input value will be between -1.0 and 1.0.
         let hilly_terrain_ex = Exponent::new(&hilly_terrain_sb2).set_exponent(1.375);
 
-        // Шаг 8. Применяю турбулентность для добавления грубых деталей
-        // для выходного значения из шага 7.
+        // Step 8: Applying turbulence to add coarse details
+        // for the output value from step 7.
         let hilly_terrain_tu0: Turbulence<&Exponent<[f64; 3]>> = Turbulence::new(&hilly_terrain_ex)
             .set_seed(*CURRENT_SEED + 62)
             .set_frequency(1531.0)
             .set_power(1.0 / 16921.0 * *HILLS_TWIST)
             .set_roughness(4);
 
-        // Шаг 8. Применяю турбулентность для добавления мелких деталей.
-        // Задаю более высокую частоту, но меньшую мощность, относительно шага 8.
+        // Step 9: Apply turbulence to add fine detail.
+        // Set a higher frequency but lower power, relative to step 8.
         let hilly_terrain_tu1 = Turbulence::<_>::new(&hilly_terrain_tu0)
             .set_seed(*CURRENT_SEED + 63)
             .set_frequency(21617.0)
             .set_power(1.0 / 117529.0 * *HILLS_TWIST)
             .set_roughness(6);
 
-        // Финальный шаг для всей группы
-        // Кеширование текущего промежуточного результата.
+        // Final step for the whole group
+        // Caching of the current intermediate result.
         let hilly_terrain = Cache::new(hilly_terrain_tu1);
 
         /////////////////////////////////////////////////////////////////////////////
